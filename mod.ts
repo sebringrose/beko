@@ -17,7 +17,6 @@ export * from "./lib/middleware/cacher.ts"
 export * from "./lib/middleware/authenticator.ts"
 
 // Utils
-export * from "./lib/utils/CacheItem.ts"
 export * from "./lib/utils/Cascade.ts"
 export * from "./lib/utils/Crypto.ts"
 export * from "./lib/utils/helpers.ts"

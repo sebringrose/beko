@@ -9,7 +9,7 @@ setInterval(() => {
   demoEventTarget.dispatchEvent(new CustomEvent("send", { detail: Math.random() }))
 }, 2500)
 
-export const APIs: Route[] = [
+const APIs: Route[] = [
   {
     path: "/sse",
     handler: sse(demoEventTarget)

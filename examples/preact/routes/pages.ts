@@ -13,11 +13,11 @@ import htmlTemplate from "../document.ts"
 
 const env = Deno.env.toObject()
 
-export const pages: Route[] = [
+const pages: Route[] = [
   {
     path: "/",
     // use cacher to serve responses from cache in prod env
-    middleware: env.ENVIRONMENT === "production" ? cacher() : [],
+    middleware: cacher(),
     handler: ssr(() => {
       const appHTML = renderToString(Home(), null, null)
       return htmlTemplate({

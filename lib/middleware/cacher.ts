@@ -1,12 +1,19 @@
-import { CacheItem, defaultKeyGen } from "../utils/CacheItem.ts";
-import { Middleware } from "../types.ts";
+import { RequestContext, Middleware } from "../../mod.ts";
+
+export type CacheResult = Promise<Response | undefined | null> | Response | undefined | null 
+
+export const defaultKeyGen = (ctx: RequestContext) => {
+  const reqURL = new URL(ctx.request.url);
+  return `${ctx.request.method}-${reqURL.pathname}${reqURL.search}-${JSON.stringify(ctx.state)}`;
+};
+
 
 interface CacheOptions {
   itemLifetime?: number
   keyGen?: typeof defaultKeyGen
   store?: {
-    get: (key: string) => Promise<CacheItem | undefined> | CacheItem | undefined
-    set: (key: string, value: CacheItem) => Promise<unknown> | unknown
+    get: (key: string) => CacheResult
+    set: (key: string, response: Response) => Promise<unknown> | unknown
     delete: (key: string) => Promise<unknown> | unknown
   }
 }
@@ -30,53 +37,51 @@ interface CacheOptions {
  * @returns cacheMiddleware: Middleware
  */
 export const cacher = (opts?: CacheOptions): Middleware => {
-  let items: CacheItem[] = [] // default items array
+  const items: Record<string, Response> = {} // default items array
 
   return async function cacheMiddleware (ctx, next) {
     const key = opts && opts.keyGen 
       ? opts.keyGen(ctx)
       : defaultKeyGen(ctx);
 
-    const cacheItem = opts && opts.store 
+    const cachedResponse = opts && opts.store 
       ? await opts.store.get(key)
-      : items.find(i => i.key === key)
+      : items[key]
 
-    if (cacheItem) {
-      if (opts && opts.itemLifetime && Date.now() > cacheItem.dob + opts.itemLifetime) {
+    if (cachedResponse) {
+      if (opts && opts.itemLifetime && Date.now() > Number(cachedResponse.headers.get("x-peko-cache")) + opts.itemLifetime) {
         if (opts && opts.store) opts.store.delete(key)
-        else items = [ ...items.filter(i => i.key !== key) ]
+        else delete items[key]
       } else {
         // ETag match triggers 304
         const ifNoneMatch = ctx.request.headers.get("if-none-match")
-        const ETag = cacheItem.value.headers.get("ETag")
+        const ETag = cachedResponse.headers.get("ETag")
     
         if (ETag && ifNoneMatch?.includes(ETag)) {
           ctx.state.responseFromCache = true
           return new Response(null, {
-            headers: cacheItem.value.headers,
+            headers: cachedResponse.headers,
             status: 304
           })
         }
         
         ctx.state.responseFromCache = true
-        return cacheItem.value.clone()
+        const clone = cachedResponse.clone()
+        clone.headers.delete("x-peko-cache")
+        return clone
       }
     }
 
     const response = await next()
     if (!response) return
 
-    const newCacheItem = new CacheItem(
-      opts && opts.keyGen 
-        ? opts.keyGen(ctx) 
-        : defaultKeyGen(ctx), 
-      response
-    )
+    response.headers.set("x-peko-cache", String(Date.now()))
 
     opts && opts.store
-      ? opts.store.set(key, newCacheItem)
-      : items = [ ...items.filter(i => i.key !== key), newCacheItem ]
+      ? opts.store.set(key, response.clone())
+      : items[key] = response.clone()
 
-    return newCacheItem.value.clone()
+    response.headers.delete("x-peko-cache")
+    return response.clone()
   }
 }

@@ -1,8 +1,7 @@
 import { assert } from "https://deno.land/std@0.198.0/testing/asserts.ts"
 import { Router, RequestContext } from "../../lib/Router.ts"
-import { cacher } from "../../lib/middleware/cacher.ts"
+import { cacher, defaultKeyGen } from "../../lib/middleware/cacher.ts"
 import { testHandler } from "../mocks/middleware.ts"
-import { CacheItem, defaultKeyGen } from "../../lib/utils/CacheItem.ts"
 
 Deno.test("MIDDLEWARE: Cacher", async (t) => {
   const router = new Router()
@@ -13,7 +12,7 @@ Deno.test("MIDDLEWARE: Cacher", async (t) => {
 
   const defaultCacher = cacher()
 
-  const itemMap: Map<string, CacheItem> = new Map()
+  const itemMap: Map<string, Response> = new Map()
   const CACHE_LIFETIME = 100
   const customCacher = cacher({
     itemLifetime: CACHE_LIFETIME,
