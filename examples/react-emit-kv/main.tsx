@@ -1,6 +1,7 @@
 import React from "https://esm.sh/react@18.2.0";
 import { renderToReadableStream } from "https://esm.sh/react-dom@18.2.0/server";
-import { bundle } from "https://deno.land/x/emit@0.26.0/mod.ts";
+import * as esbuild from "https://deno.land/x/esbuild@v0.19.2/mod.js";
+import { denoPlugins } from "https://deno.land/x/esbuild_deno_loader@0.8.1/mod.ts";
 import { 
   Router, 
   ssr, 
@@ -29,14 +30,30 @@ router.get("/", [kvCache, loadTasks],
 
 router.addRoutes(await routesFromDir(
   new URL("./src", import.meta.url), 
-  (path, url) => ({
+  (path) => ({
     path,
     middleware: kvCache,
     handler: async () => {
-      const { code } = await bundle(url, {
-        allowRemote: false
-      });
-      return new Response(code, {
+      const bundle = await esbuild.build({
+        entryPoints: [`.${path}`],
+        platform: "browser",
+        target: ["chrome99", "firefox99", "safari15"],
+        format: "esm",
+        bundle: true,
+        splitting: true,
+        treeShaking: true,
+        sourcemap: "linked",
+        jsx: "transform",
+        absWorkingDir: Deno.cwd(),
+        outdir: ".",
+        write: false,
+        metafile: true,
+        plugins: [...denoPlugins()]
+      })
+
+      //console.log(bundle)
+
+      return new Response(bundle.outputFiles[1].contents, {
         headers: {
           "Content-Type": "text/javascript"
         }
