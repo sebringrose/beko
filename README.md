@@ -169,6 +169,15 @@ router.addRoute("/get-time", {
 })
 ```
 
+### Transpiling & bundling
+
+Firstly, avoid doing this at runtime. It is slow and there is not common support for transpiling across edge runtimes.
+
+It is best to utilise a CLI and integrate into your CI process. For example:
+
+```
+```
+
 <h2 id="deployment">Deployment</h2>
 
 - [Deno Deploy](https://dash.deno.com/projects) (fork and deploy the examples if you fancy 💖)
