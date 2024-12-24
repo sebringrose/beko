@@ -1,12 +1,8 @@
-import { BaseRouter } from "./routers/_Router.ts";
+export class RequestContext<S extends object = object> {
+  url: URL;
+  params: Record<string, string> = {};
 
-export class RequestContext<T extends object = Record<string, unknown>> {
-    url: URL;
-    state: T;
-    params: Record<string, string> = {};
-  
-    constructor(public router: BaseRouter, public request: Request, state?: T) {
-      this.url = new URL(request.url);
-      this.state = state ? state : ({} as T);
-    }
+  constructor(public request: Request, public state: S) {
+    this.url = new URL(request.url);
   }
+}

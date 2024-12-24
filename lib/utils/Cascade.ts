@@ -1,25 +1,25 @@
 import { RequestContext } from "../context.ts";
 import { Middleware, Result, Next, Handler } from "../types.ts";
 
-export type PromiseHandler = (
-  ctx: RequestContext,
+export type PromiseHandler<C extends object = object> = (
+  ctx: RequestContext<C>,
 ) => Promise<Response>;
-export type PromiseMiddleware = (
-  ctx: RequestContext,
+export type PromiseMiddleware<C extends object = object> = (
+  ctx: RequestContext<C>,
   next: Next
 ) => Promise<Result>;
 
 /**
  * Utility class for running middleware functions in a cascade
  */
-export class Cascade {
+export class Cascade<C extends object = object> {
   result: Result;
   called = 0;
 
-  constructor(public ctx: RequestContext, public middleware: Middleware[]) {}
+  constructor(public ctx: RequestContext<C>, public middleware: Middleware<C>[]) {}
 
-  static promisify(fcn: Handler): PromiseHandler
-  static promisify(fcn: Middleware): PromiseMiddleware
+  static promisify<H extends Handler>(fcn: H): PromiseHandler<H extends Handler<infer C> ? C : never>
+  static promisify<M extends Middleware>(fcn: Middleware): PromiseMiddleware<M extends Middleware<infer C> ? C : never>
   static promisify(fcn: Handler | Middleware): PromiseHandler | PromiseMiddleware {
     return fcn.constructor.name === "AsyncFunction"
       ? (fcn as PromiseMiddleware)

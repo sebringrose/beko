@@ -3,11 +3,11 @@ import { RequestContext } from "./context.ts";
 export type Result = void | Response | undefined;
 export type Next = () => Promise<Result> | Result;
 
-export type Middleware = (
-  ctx: RequestContext,
+export type Middleware<S extends object = object> = (
+  ctx: RequestContext<S>,
   next: Next
 ) => Promise<Result> | Result;
-export type Handler = (ctx: RequestContext) => Promise<Response> | Response;
+export type Handler<S extends object = object> = (ctx: RequestContext<S>) => Promise<Response> | Response;
 export type HandlerOptions = { headers?: Headers };
 
 export type BodyInit =

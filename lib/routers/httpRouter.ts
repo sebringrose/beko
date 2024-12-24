@@ -2,17 +2,17 @@ import { RequestContext } from "../context.ts";
 import { Middleware, Handler } from "../types.ts";
 import { BaseRoute, BaseRouter, BaseRouteConfig } from "./_Router.ts";
 
-export interface HttpRouteConfig extends BaseRouteConfig {
+export interface HttpRouteConfig<S extends object = object> extends BaseRouteConfig<S> {
   path: `/${string}`;
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-  handler: Handler;
+  handler?: Handler<S>;
 }
 
-export class HttpRoute extends BaseRoute {
+export class HttpRoute<S extends object = object> extends BaseRoute<S> {
   declare path: `/${string}`;
-  declare method: HttpRouteConfig["method"];
+  declare method: HttpRouteConfig<S>["method"];
 
-  constructor(routeObj: HttpRouteConfig) {
+  constructor(routeObj: HttpRouteConfig<S>) {
     super(routeObj);
     this.method = routeObj.method || "GET";
   }
@@ -33,7 +33,7 @@ export class HttpRoute extends BaseRoute {
       : new RegExp(`^${this.path}\/?$`);
   }
 
-  match(ctx: RequestContext): boolean {
+  match(ctx: RequestContext<S>): boolean {
     if (
       this.regexPath.test(ctx.url.pathname) &&
       this.method === ctx.request.method
@@ -49,13 +49,14 @@ export class HttpRoute extends BaseRoute {
 }
 
 export class HttpRouter<
-  Config extends HttpRouteConfig = HttpRouteConfig,
-  R extends HttpRoute = HttpRoute
-> extends BaseRouter<Config, R> {
-  Route = HttpRoute;
+  S extends object,
+  Config extends HttpRouteConfig<S> = HttpRouteConfig<S>,
+  R extends HttpRoute<S> = HttpRoute<S>
+> extends BaseRouter<S, Config, R> {
+  Route = HttpRoute<S>;
 
-  constructor(public routes: R[] = [], public middleware: Middleware[] = []) {
-    super();
+  constructor(public state?: S, public middleware: Middleware<S>[] = [], public routes: R[] = []) {
+    super(state, middleware, routes);
   }
 
   get: typeof this.addRoute = function () {

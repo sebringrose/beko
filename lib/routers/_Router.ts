@@ -2,18 +2,18 @@ import { RequestContext } from "../context.ts";
 import { Handler, Middleware } from "../types.ts";
 import { Cascade } from "../utils/Cascade.ts";
 
-export interface BaseRouteConfig {
+export interface BaseRouteConfig<S extends object = object> {
   path: string;
-  middleware?: Middleware | Middleware[];
-  handler?: Handler;
+  middleware?: Middleware<S> | Middleware<S>[];
+  handler?: Handler<S>;
 }
 
-export class BaseRoute {
+export class BaseRoute<S extends object = object> {
   path: string;
-  middleware: Middleware[];
-  handler?: Handler;
+  middleware: Middleware<S>[];
+  handler?: Handler<S>;
 
-  constructor(routeObj: BaseRouteConfig) {
+  constructor(routeObj: BaseRouteConfig<S>) {
     this.path = routeObj.path;
     this.handler = routeObj.handler && Cascade.promisify(routeObj.handler);
     this.middleware = [routeObj.middleware]
@@ -26,20 +26,22 @@ export class BaseRoute {
     return new RegExp(this.path);
   }
 
-  match(ctx: RequestContext): boolean {
+  match(ctx: RequestContext<S>): boolean {
     return this.regexPath.test(ctx.url.pathname);
   }
 }
 
 export class BaseRouter<
-  Config extends BaseRouteConfig = BaseRouteConfig,
-  R extends BaseRoute = BaseRoute
+  S extends object = object,
+  Config extends BaseRouteConfig<S> = BaseRouteConfig<S>,
+  R extends BaseRoute<S> = BaseRoute<S>
 > {
-  Route = BaseRoute;
+  Route = BaseRoute<S>;
 
   constructor(
-    public routes: R[] = [], // <- use this as a hashmap for routes
-    public middleware: Middleware[] = []
+    public state?: S,
+    public middleware: Middleware<S>[] = [],
+    public routes: R[] = [] // <- use this as a hashmap for routes
   ) {}
 
   /**
@@ -48,8 +50,8 @@ export class BaseRouter<
    * @returns Promise<Response>
    */
   async handle(request: Request): Promise<Response> {
-    const ctx = new RequestContext(this, request);
-    const res = await new Cascade(ctx, this.middleware).run();
+    const ctx = new RequestContext(request, this.state);
+    const res = await new Cascade<S>(ctx, this.middleware).run();
     return res ? res : new Response("", { status: 404 });
   }
 
@@ -58,7 +60,7 @@ export class BaseRouter<
    * @param middleware: Middleware[] | Middleware | Router
    * @returns number - server.middleware.length
    */
-  use(middleware: Middleware | Middleware[]) {
+  use(middleware: Middleware<S> | Middleware<S>[]) {
     if (Array.isArray(middleware)) {
       middleware.forEach((mware) => this.use(mware));
     } else {
@@ -75,16 +77,16 @@ export class BaseRouter<
    * @returns route: Route - added route object
    */
   addRoute(route: Config): R;
-  addRoute(route: Config["path"], data: Omit<Config, "path"> | Handler): R;
+  addRoute(route: Config["path"], data: Omit<Config, "path"> | Handler<S>): R;
   addRoute(
     route: Config["path"],
-    middleware: Middleware | Middleware[],
-    handler: Handler
+    middleware: Middleware<S> | Middleware<S>[],
+    handler: Handler<S>
   ): R;
   addRoute(
     arg1: Config | Config["path"],
-    arg2?: Middleware | Middleware[] | Omit<Config, "path"> | Handler,
-    arg3?: Handler
+    arg2?: Middleware<S> | Middleware<S>[] | Omit<Config, "path"> | Handler<S>,
+    arg3?: Handler<S>
   ): R {
     // overload resolution
     const routeObj =
@@ -92,12 +94,12 @@ export class BaseRouter<
         ? arg1
         : arguments.length === 2
         ? arg2 instanceof Function
-          ? { path: arg1, handler: arg2 as Handler }
+          ? { path: arg1, handler: arg2 as Handler<S> }
           : { path: arg1, ...(arg2 as Omit<Config, "path">) }
         : {
             path: arg1,
-            middleware: arg2 as Middleware | Middleware[],
-            handler: arg3 as Handler,
+            middleware: arg2 as Middleware<S> | Middleware<S>[],
+            handler: arg3 as Handler<S>,
           };
 
     // create new Route object
@@ -123,7 +125,7 @@ export class BaseRouter<
     this.routes.push(fullRoute as R);
     this.middleware.push(function RouteMiddleware(ctx) {
       if (fullRoute.match(ctx)) {
-        return new Cascade(ctx, mware).run();
+        return new Cascade<S>(ctx, mware).run();
       }
     });
 
